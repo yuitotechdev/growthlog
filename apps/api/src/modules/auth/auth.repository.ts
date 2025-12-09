@@ -30,6 +30,7 @@ export class AuthRepository {
     password: string; 
     name?: string; 
     uniqueId: string;
+    emailVerified?: boolean;
     emailVerificationToken?: string;
     emailVerificationTokenExpires?: Date;
   }) {

@@ -20,7 +20,7 @@ export class ActivityRepository {
   }
 
   async findByUserId(userId: string, options?: { startDate?: string; endDate?: string; categories?: string[] }) {
-    const where: { userId: string; date?: string } = { userId };
+    const where: any = { userId };
 
     if (options?.startDate || options?.endDate) {
       where.date = {};
