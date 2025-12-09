@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ActivityForm } from '@/features/activity/components/ActivityForm';
 import { ActivityList } from '@/features/activity/components/ActivityList';
 import { useActivities } from '@/features/activity/hooks/useActivities';
 
-export default function ActivitiesPage() {
+function ActivitiesContent() {
   const searchParams = useSearchParams();
   const autoOpen = searchParams.get('new') === 'true';
   const [showForm, setShowForm] = useState(autoOpen);
@@ -101,6 +101,23 @@ export default function ActivitiesPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ActivitiesPage() {
+  return (
+    <Suspense fallback={
+      <div className="activities-page">
+        <div className="page-header">
+          <div className="header-content">
+            <h1>📝 活動ログ</h1>
+            <p>読み込み中...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ActivitiesContent />
+    </Suspense>
   );
 }
 
