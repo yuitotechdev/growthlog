@@ -26,44 +26,28 @@ import type { Express } from 'express';
 
 const app: Express = express();
 
-// Middleware
-// CORS設定: 本番環境ではFRONTEND_URLとVercelドメイン、開発環境ではlocalhostを許可
+// CORS設定: 最上部で設定し、FRONTEND_URLからのアクセスのみ許可
+const rawFrontendUrl = process.env.FRONTEND_URL || '';
+const FRONTEND_URL = rawFrontendUrl.replace(/\/$/, ''); // 末尾の"/"を削除して正規化
+
+// 開発環境ではlocalhostも許可
 const isProduction = process.env.NODE_ENV === 'production';
-const allowedOrigins = isProduction
-  ? [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      // VercelのプレビューURLパターンを許可
-      /^https:\/\/.*\.vercel\.app$/,
-    ]
-  : ['http://localhost:3000', 'http://localhost:3001'];
+const allowedOrigin = isProduction
+  ? FRONTEND_URL || 'http://localhost:3000'
+  : 'http://localhost:3000';
 
-const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // originがundefined（同一オリジン）の場合は許可
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
+app.use(
+  cors({
+    origin: allowedOrigin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
-    // 許可されたオリジンリストをチェック
-    const isAllowed = allowedOrigins.some((allowedOrigin) => {
-      if (typeof allowedOrigin === 'string') {
-        return origin === allowedOrigin;
-      } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
+// プリフライト対応: すべてのOPTIONSリクエストにCORSを適用して200を返す
+app.options('*', cors());
 
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-};
-app.use(cors(corsOptions));
 app.use(express.json());
 app.use(loggingMiddleware);
 
