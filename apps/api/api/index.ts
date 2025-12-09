@@ -1,3 +1,6 @@
-// Vercel用のエントリーポイント - src/index.tsをそのまま使用
-export { default } from '../src/index';
+// Vercel用のエントリーポイント
+// @vercel/nodeがTypeScriptを自動的にコンパイルするため、src/index.tsから直接インポート可能
+import app from '../src/index';
+
+export default app;
 
