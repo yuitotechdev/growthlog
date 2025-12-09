@@ -1,0 +1,19 @@
+{
+  "name": "growthlog",
+  "private": true,
+  "scripts": {
+    "dev:api": "pnpm --filter @growthlog/api dev",
+    "dev:web": "pnpm --filter @growthlog/web dev",
+    "dev:mobile": "pnpm --filter @growthlog/mobile dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "type-check": "pnpm -r type-check"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.3"
+  }
+}
+
+

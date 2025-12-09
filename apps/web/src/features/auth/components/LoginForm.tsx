@@ -1,0 +1,94 @@
+'use client';
+
+import { useState } from 'react';
+import { ApiClient, LoginResponse } from '@growthlog/shared';
+import { useAuth } from '../hooks/useAuth';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+export function LoginForm() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const client = new ApiClient({ baseUrl: API_BASE_URL });
+      const response = await client.post<LoginResponse>('/api/auth/login', {
+        identifier,
+        password,
+      });
+
+      login(response.token);
+      window.location.href = '/';
+    } catch (err: any) {
+      setError(err.message || 'ログインに失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="auth-form">
+      {error && <div className="alert alert-error">⚠️ {error}</div>}
+      
+      <div className="form-field">
+        <label>ユーザーID</label>
+        <input
+          type="text"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="user123 または email@example.com"
+          className="input"
+          required
+        />
+        <p className="hint">ユーザーIDまたはメールアドレスでログインできます</p>
+      </div>
+
+      <div className="form-field">
+        <label>パスワード</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="パスワード"
+          className="input"
+          required
+        />
+      </div>
+
+      <button type="submit" className="button" disabled={isLoading}>
+        {isLoading ? '🔄 ログイン中...' : '🔐 ログイン'}
+      </button>
+
+      <style jsx>{`
+        .auth-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+        .form-field {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .form-field label {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .button {
+          margin-top: 0.5rem;
+        }
+      `}</style>
+    </form>
+  );
+}
+
+

@@ -1,0 +1,219 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  name            String?
+  username        String?   // 表示名
+  uniqueId        String    @unique // 公開用ユーザーID（例: @user123）必須
+  avatarEmoji     String?   // プロフィール絵文字（例: 😀, 🎨, 🚀）
+  uniqueIdChangedAt DateTime? // ユーザーID変更日（1ヶ月制限用）
+  emailVerified   Boolean   @default(false) // メール認証済みかどうか
+  emailVerificationToken String? @unique // メール認証トークン
+  emailVerificationTokenExpires DateTime? // トークンの有効期限
+  isAdmin         Boolean   @default(false)
+  isSuspended     Boolean   @default(false)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  activities      Activity[]
+  insights        Insight[]
+  categories      Category[]
+  ownedGroups     Group[]        @relation("GroupOwner")
+  groupMemberships GroupMember[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   // カテゴリ名
+  emoji     String   // 絵文字アイコン
+  color     String   // カラーコード (hex)
+  isDefault Boolean  @default(false) // デフォルトカテゴリかどうか
+  sortOrder Int      @default(0)     // 並び順
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@map("categories")
+  @@index([userId, sortOrder])
+}
+
+model Activity {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  category        String   // カテゴリ名
+  durationMinutes Int
+  mood            Int      // 1-5
+  note            String?
+  date            String   // YYYY-MM-DD format
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharedToGroups  GroupSharedActivity[]
+
+  @@map("activities")
+  @@index([userId, date])
+  @@index([category])
+}
+
+model Insight {
+  id            String   @id @default(cuid())
+  userId        String
+  summary       String
+  advice        String
+  startDate     String   // YYYY-MM-DD format
+  endDate       String   // YYYY-MM-DD format
+  category      String?  // カテゴリでフィルタした場合のカテゴリ名
+  activityCount Int
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("insights")
+  @@index([userId, createdAt])
+}
+
+// グループ
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  inviteCode  String   @unique // 招待URL用のコード
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner             User                  @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members           GroupMember[]
+  sharedCategories  GroupCategory[]
+  sharedActivities  GroupSharedActivity[]
+  groupInsights     GroupInsight[]
+
+  @@map("groups")
+  @@index([ownerId])
+}
+
+// グループメンバー
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String   @default("member") // 'owner' | 'member'
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+  @@index([groupId])
+  @@index([userId])
+}
+
+// グループで共有するカテゴリ
+model GroupCategory {
+  id           String @id @default(cuid())
+  groupId      String
+  categoryName String // カテゴリ名
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, categoryName])
+  @@map("group_categories")
+  @@index([groupId])
+}
+
+// グループに共有された活動
+model GroupSharedActivity {
+  id         String   @id @default(cuid())
+  groupId    String
+  activityId String
+  sharedAt   DateTime @default(now())
+
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, activityId])
+  @@map("group_shared_activities")
+  @@index([groupId])
+  @@index([activityId])
+}
+
+// グループインサイト（メンバーごと）
+model GroupInsight {
+  id            String   @id @default(cuid())
+  groupId       String
+  userId        String   // インサイト対象のメンバー
+  summary       String
+  advice        String
+  startDate     String
+  endDate       String
+  activityCount Int
+  createdAt     DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("group_insights")
+  @@index([groupId, userId])
+}
+
+// グループチャットメッセージ
+model GroupMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("group_messages")
+  @@index([groupId, createdAt])
+  @@index([userId])
+}
+
+// システムログ（API使用状況、エラーログ）
+model SystemLog {
+  id        String   @id @default(cuid())
+  type      String   // 'api_call' | 'error' | 'llm_call' | 'auth'
+  method    String?  // HTTP method
+  path      String?  // API path
+  userId    String?  // User who made the request
+  status    Int?     // HTTP status code
+  duration  Int?     // Response time in ms
+  message   String?  // Error message or description
+  metadata  String?  // JSON string for additional data
+  createdAt DateTime @default(now())
+
+  @@map("system_logs")
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+}
+
+// システム設定
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
