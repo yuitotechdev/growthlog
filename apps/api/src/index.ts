@@ -56,15 +56,17 @@ const corsOptions = {
         callback(null, true);
         return;
       }
-      // VercelプレビューURLパターン（*.vercel.app）
-      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+      // VercelプレビューURLパターン（*.vercel.app または *-dekaos-projects.vercel.app）
+      const vercelPattern = /^https:\/\/.*\.vercel\.app$/;
+      if (vercelPattern.test(origin)) {
         callback(null, true);
         return;
       }
     }
 
-    // 許可されていないオリジン
-    callback(new Error('Not allowed by CORS'));
+    // 許可されていないオリジン（エラーを返さず、falseを返す）
+    console.warn(`CORS: Origin not allowed: ${origin} (FRONTEND_URL: ${FRONTEND_URL}, isProduction: ${isProduction})`);
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
