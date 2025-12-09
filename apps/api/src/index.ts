@@ -66,6 +66,22 @@ const insightController = new InsightController(insightService);
 const adminController = new AdminController(adminService);
 
 // Routes
+app.get('/', (req, res) => {
+  res.json({
+    name: 'GrowthLog API',
+    version: '1.0.0',
+    status: 'ok',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      activities: '/api/activities',
+      insights: '/api/insights',
+      groups: '/api/groups',
+      profile: '/api/profile',
+    },
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
