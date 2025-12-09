@@ -9,8 +9,11 @@ export class AuthService {
   constructor(private repository: AuthRepository) {}
 
   async signUp(email: string, password: string, uniqueId: string, name?: string) {
+    // メールアドレスを小文字に正規化
+    const normalizedEmail = email.toLowerCase().trim();
+    
     // Check if email already exists
-    const existingUser = await this.repository.findByEmail(email);
+    const existingUser = await this.repository.findByEmail(normalizedEmail);
     if (existingUser) {
       throw new ConflictError('このメールアドレスは既に登録されています');
     }
@@ -40,8 +43,9 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user (メール認証なし)
+    // メールアドレスは小文字に正規化して保存
     const user = await this.repository.create({
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       name,
       uniqueId,
@@ -64,9 +68,12 @@ export class AuthService {
 
   async login(identifier: string, password: string) {
     // Find user by email or uniqueId
-    let user = await this.repository.findByEmail(identifier);
+    // メールアドレスの可能性がある場合は小文字に正規化
+    const normalizedIdentifier = identifier.toLowerCase().trim();
+    let user = await this.repository.findByEmail(normalizedIdentifier);
     if (!user) {
-      user = await this.repository.findByUniqueId(identifier);
+      // uniqueIdの場合は大文字小文字を区別しない（小文字に変換して検索）
+      user = await this.repository.findByUniqueId(normalizedIdentifier);
     }
     
     if (!user) {

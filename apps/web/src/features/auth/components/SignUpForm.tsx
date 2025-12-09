@@ -69,7 +69,14 @@ export function SignUpForm() {
         }
       }
     } catch (err: any) {
-      setError(err.message || '登録に失敗しました');
+      // 409エラー（既に登録されている）の場合、特別なメッセージを表示
+      if (err.message && err.message.includes('既に登録されています')) {
+        setError('このメールアドレスは既に登録されています。ログインページからログインしてください。');
+      } else if (err.message && err.message.includes('既に使用されています')) {
+        setError('このユーザーIDは既に使用されています。別のユーザーIDを入力してください。');
+      } else {
+        setError(err.message || '登録に失敗しました');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +84,18 @@ export function SignUpForm() {
 
   return (
     <form onSubmit={handleSubmit} className="auth-form">
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
+      {error && (
+        <div className="alert alert-error">
+          ⚠️ {error}
+          {error.includes('既に登録されています') && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <a href="/auth/login" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                → ログインページへ
+              </a>
+            </div>
+          )}
+        </div>
+      )}
       
       <div className="form-field">
         <label>メールアドレス <span className="required">*</span></label>
