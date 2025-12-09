@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Application } from 'express';
 import cors from 'cors';
 import { env } from './common/config/env';
 import { HttpError } from './common/errors/http.error';
@@ -23,7 +23,7 @@ import { groupController } from './modules/group/group.controller';
 import { sharedActivityController } from './modules/group/shared-activity.controller';
 import { chatController } from './modules/group/chat.controller';
 
-const app = express();
+const app: Application = express();
 
 // CORS設定: 最上部で設定し、FRONTEND_URLとVercelプレビューURLを許可
 const rawFrontendUrl = process.env.FRONTEND_URL || '';
