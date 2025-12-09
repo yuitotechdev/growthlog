@@ -29,8 +29,9 @@ const app: Application = express();
 const rawFrontendUrl = process.env.FRONTEND_URL || '';
 const FRONTEND_URL = rawFrontendUrl.replace(/\/$/, ''); // 末尾の"/"を削除して正規化
 
-// 開発環境ではlocalhostも許可
-const isProduction = process.env.NODE_ENV === 'production';
+// Vercel環境の検出（VERCEL環境変数またはVERCEL_ENVが設定されている場合）
+const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
+const isProduction = process.env.NODE_ENV === 'production' || isVercel;
 
 // CORS設定: 本番環境ではFRONTEND_URLとVercelプレビューURLを許可
 const corsOptions = {
@@ -41,22 +42,8 @@ const corsOptions = {
       return;
     }
 
-    // 開発環境ではlocalhostを許可
-    if (!isProduction) {
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        callback(null, true);
-        return;
-      }
-    }
-
-    // 本番環境ではFRONTEND_URLとVercelプレビューURLを許可
-    if (isProduction) {
-      // FRONTEND_URLと完全一致
-      if (FRONTEND_URL && origin === FRONTEND_URL) {
-        callback(null, true);
-        return;
-      }
-      // VercelプレビューURLパターン（*.vercel.app または *-dekaos-projects.vercel.app）
+    // Vercel環境では常にVercelプレビューURLを許可（最優先）
+    if (isVercel) {
       const vercelPattern = /^https:\/\/.*\.vercel\.app$/;
       if (vercelPattern.test(origin)) {
         callback(null, true);
@@ -64,8 +51,22 @@ const corsOptions = {
       }
     }
 
+    // 開発環境ではlocalhostを許可
+    if (!isProduction && !isVercel) {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        callback(null, true);
+        return;
+      }
+    }
+
+    // 本番環境ではFRONTEND_URLと完全一致を許可
+    if (isProduction && FRONTEND_URL && origin === FRONTEND_URL) {
+      callback(null, true);
+      return;
+    }
+
     // 許可されていないオリジン（エラーを返さず、falseを返す）
-    console.warn(`CORS: Origin not allowed: ${origin} (FRONTEND_URL: ${FRONTEND_URL}, isProduction: ${isProduction})`);
+    console.warn(`CORS: Origin not allowed: ${origin} (FRONTEND_URL: ${FRONTEND_URL}, isProduction: ${isProduction}, isVercel: ${isVercel})`);
     callback(null, false);
   },
   credentials: true,
