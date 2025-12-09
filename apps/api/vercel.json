@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm --filter @growthlog/shared build && pnpm build",
+  "buildCommand": "pnpm --filter @growthlog/shared build && pnpm build:deploy",
   "installCommand": "pnpm install",
   "rewrites": [
     {
