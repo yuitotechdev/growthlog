@@ -22,9 +22,8 @@ import { profileController } from './modules/profile/profile.controller';
 import { groupController } from './modules/group/group.controller';
 import { sharedActivityController } from './modules/group/shared-activity.controller';
 import { chatController } from './modules/group/chat.controller';
-import type { Express } from 'express';
 
-const app: Express = express();
+const app = express();
 
 // CORS設定: 最上部で設定し、FRONTEND_URLからのアクセスのみ許可
 const rawFrontendUrl = process.env.FRONTEND_URL || '';
@@ -176,10 +175,15 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction): void =>
       statusCode: error.statusCode,
     });
   } else {
+    // 本番環境では詳細なエラー情報を隠すが、開発環境では表示
+    const isDevelopment = process.env.NODE_ENV === 'development';
     console.error('Unhandled error:', error);
+    console.error('Error stack:', error.stack);
+    
     res.status(500).json({
       error: 'InternalServerError',
-      message: 'An unexpected error occurred',
+      message: isDevelopment ? error.message : 'An unexpected error occurred',
+      ...(isDevelopment && { stack: error.stack }),
       statusCode: 500,
     });
   }
