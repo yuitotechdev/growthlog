@@ -6,6 +6,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 export function NavBar() {
   const pathname = usePathname();
   const { token, logout } = useAuth();
@@ -22,7 +24,7 @@ export function NavBar() {
       }
 
       try {
-        const response = await fetch('http://localhost:3001/api/admin/stats/overview', {
+        const response = await fetch(`${API_BASE_URL}/api/admin/stats/overview`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
