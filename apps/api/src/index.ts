@@ -22,8 +22,9 @@ import { profileController } from './modules/profile/profile.controller';
 import { groupController } from './modules/group/group.controller';
 import { sharedActivityController } from './modules/group/shared-activity.controller';
 import { chatController } from './modules/group/chat.controller';
+import type { Express } from 'express';
 
-const app = express();
+const app: Express = express();
 
 // Middleware
 // CORS設定: 本番環境ではFRONTEND_URL、開発環境ではlocalhostを許可
