@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "pnpm --filter @growthlog/shared build && pnpm build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "dist",
   "builds": [
     {
       "src": "api/index.ts",
