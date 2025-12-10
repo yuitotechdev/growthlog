@@ -36,7 +36,10 @@ function OnboardingCompleteHandler() {
 export default function HomePage() {
   const { token, isLoading: authLoading } = useAuth();
   const today = new Date().toISOString().split('T')[0];
-  const { activities, isLoading: activitiesLoading } = useActivities({ excludeSamples: true });
+  // ユーザーの活動データ（サンプル除外）
+  const { activities, isLoading: activitiesLoading, refetch: refetchActivities } = useActivities({ excludeSamples: true });
+  // 全活動データ（サンプル含む）- サンプルデータの判定用
+  const { activities: allActivities, isLoading: allActivitiesLoading } = useActivities({ excludeSamples: false });
   const { insights, isLoading: insightsLoading } = useInsights(1);
   const { profile, isLoading: profileLoading } = useProfile();
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -46,6 +49,10 @@ export default function HomePage() {
   // フックのルールに従い、すべてのフックを条件分岐の前に配置
   const [showTutorialPrompt, setShowTutorialPrompt] = useState(false);
   const [tutorialPromptDismissed, setTutorialPromptDismissed] = useState(false);
+  // サンプルデータ削除プロンプト
+  const [showDeleteSamplePrompt, setShowDeleteSamplePrompt] = useState(false);
+  const [deleteSampleDismissed, setDeleteSampleDismissed] = useState(false);
+  const [isDeletingSamples, setIsDeletingSamples] = useState(false);
 
   // 初回ユーザーチェック
   useEffect(() => {
@@ -71,15 +78,29 @@ export default function HomePage() {
     checkOnboardingStatus();
   }, [token, authLoading, router]);
 
+  // サンプルデータの判定
+  const hasSampleData = allActivities.some((a: any) => a.isSample === true);
+  const userActivityCount = activities.length;
+
   // チュートリアルプロンプトの表示制御
   useEffect(() => {
-    if (typeof window !== 'undefined' && token) {
+    if (typeof window !== 'undefined' && token && !activitiesLoading && !allActivitiesLoading) {
       const onboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
       const dismissed = localStorage.getItem('tutorial_prompt_dismissed') === 'true';
       setTutorialPromptDismissed(dismissed);
-      setShowTutorialPrompt(onboardingComplete && !dismissed && !activitiesLoading);
+      // ユーザーの活動データが0件の場合に表示（サンプルデータがあっても表示）
+      setShowTutorialPrompt(onboardingComplete && !dismissed && userActivityCount === 0);
     }
-  }, [token, activitiesLoading]);
+  }, [token, activitiesLoading, allActivitiesLoading, userActivityCount]);
+
+  // サンプルデータ削除プロンプトの表示制御
+  useEffect(() => {
+    if (typeof window !== 'undefined' && token && !allActivitiesLoading) {
+      const dismissed = localStorage.getItem('delete_sample_prompt_dismissed') === 'true';
+      setDeleteSampleDismissed(dismissed);
+      setShowDeleteSamplePrompt(hasSampleData && !dismissed);
+    }
+  }, [token, allActivitiesLoading, hasSampleData]);
 
   if (authLoading) {
     return <Loading />;
@@ -188,6 +209,34 @@ export default function HomePage() {
     setShowTutorialPrompt(false);
   };
 
+  const handleDismissDeleteSamplePrompt = () => {
+    localStorage.setItem('delete_sample_prompt_dismissed', 'true');
+    setDeleteSampleDismissed(true);
+    setShowDeleteSamplePrompt(false);
+  };
+
+  const handleDeleteSamples = async () => {
+    if (!token || isDeletingSamples) return;
+
+    setIsDeletingSamples(true);
+    try {
+      const client = new ApiClient({
+        baseUrl: API_BASE_URL,
+        getToken: () => token,
+      });
+      await client.delete('/api/onboarding/samples');
+      // 活動データを再取得
+      await refetchActivities();
+      setShowDeleteSamplePrompt(false);
+      handleDismissDeleteSamplePrompt();
+    } catch (err: any) {
+      console.error('Failed to delete samples:', err);
+      alert('サンプルデータの削除に失敗しました: ' + (err.message || '不明なエラー'));
+    } finally {
+      setIsDeletingSamples(false);
+    }
+  };
+
   return (
     <>
       <Suspense fallback={null}>
@@ -196,6 +245,35 @@ export default function HomePage() {
       <FabGuide />
       <GroupIntroPopup />
       <div className="dashboard">
+        {/* サンプルデータ削除の提案 */}
+        {showDeleteSamplePrompt && (
+          <div className="tutorial-prompt" style={{ marginBottom: '1rem' }}>
+            <div className="tutorial-prompt-content">
+              <span className="tutorial-prompt-icon">🗑️</span>
+              <div className="tutorial-prompt-text">
+                <h3 className="tutorial-prompt-title">サンプルデータを削除しますか？</h3>
+                <p className="tutorial-prompt-subtitle">チュートリアル用のサンプルデータを削除して、あなたの活動データで始めましょう</p>
+              </div>
+              <div className="tutorial-prompt-actions">
+                <button
+                  className="tutorial-prompt-button"
+                  onClick={handleDeleteSamples}
+                  disabled={isDeletingSamples}
+                >
+                  {isDeletingSamples ? '削除中...' : '削除する'}
+                </button>
+                <button
+                  className="tutorial-prompt-dismiss"
+                  onClick={handleDismissDeleteSamplePrompt}
+                  aria-label="閉じる"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* チュートリアル再開の提案 */}
         {showTutorialPrompt && (
           <div className="tutorial-prompt">

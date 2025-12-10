@@ -3,6 +3,7 @@ import { env } from '../../common/config/env';
 import { BadRequestError, NotFoundError } from '../../common/errors/http.error';
 import { ActivityRepository } from '../activity/activity.repository';
 import { InsightRepository } from './insight.repository';
+import { prisma } from '../../common/db/prisma';
 
 export class InsightService {
   private openai: OpenAI | null = null;
@@ -31,7 +32,7 @@ export class InsightService {
       throw new BadRequestError('指定された期間に活動がありません');
     }
 
-    const { summary, advice, oneLineSummary, actionItems } = await this.generateAiInsight(activities);
+    const { summary, advice, oneLineSummary, actionItems } = await this.generateAiInsight(activities, userId);
 
     // actionItemsをJSON文字列として保存
     const insight = await this.insightRepository.create({
@@ -76,7 +77,7 @@ export class InsightService {
     durationMinutes: number;
     mood: number;
     date: string;
-  }>): Promise<{ summary: string; advice: string; oneLineSummary: string; actionItems: string[] }> {
+  }>, userId: string): Promise<{ summary: string; advice: string; oneLineSummary: string; actionItems: string[] }> {
     const totalMinutes = activities.reduce((sum, a) => sum + a.durationMinutes, 0);
     const avgMood = (activities.reduce((sum, a) => sum + a.mood, 0) / activities.length).toFixed(1);
 
@@ -97,6 +98,7 @@ export class InsightService {
         .map((a) => `- ${a.title} (${a.category}): ${a.durationMinutes}分, 気分: ${a.mood}/5`)
         .join('\n');
 
+      const startTime = Date.now();
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
@@ -122,6 +124,29 @@ ${activitySummary}
         temperature: 0.7,
         max_tokens: 600,
       });
+      const duration = Date.now() - startTime;
+
+      // LLM呼び出しログを記録
+      try {
+        await prisma.systemLog.create({
+          data: {
+            type: 'llm_call',
+            method: 'POST',
+            path: '/api/insights',
+            userId,
+            status: 200,
+            duration,
+            message: `Insight generation for ${activities.length} activities`,
+            metadata: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              activityCount: activities.length,
+              tokensUsed: completion.usage?.total_tokens || null,
+            }),
+          },
+        });
+      } catch (logError) {
+        console.error('[InsightService] Failed to save LLM log:', logError);
+      }
 
       const content = completion.choices[0]?.message?.content || '';
       const parsed = JSON.parse(content);
@@ -136,6 +161,27 @@ ${activitySummary}
       };
     } catch (error) {
       console.error('OpenAI API Error:', error);
+      
+      // エラーログを記録
+      try {
+        await prisma.systemLog.create({
+          data: {
+            type: 'error',
+            method: 'POST',
+            path: '/api/insights',
+            userId,
+            status: 500,
+            message: `OpenAI API Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            metadata: JSON.stringify({
+              activityCount: activities.length,
+              errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+            }),
+          },
+        });
+      } catch (logError) {
+        console.error('[InsightService] Failed to save error log:', logError);
+      }
+      
       return {
         oneLineSummary: `この期間に${activities.length}件の活動を記録しました`,
         actionItems: [

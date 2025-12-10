@@ -4,6 +4,7 @@ import { chatService } from './chat.service';
 import { BadRequestError, ForbiddenError } from '../../common/errors/http.error';
 import { env } from '../../common/config/env';
 import OpenAI from 'openai';
+import { prisma } from '../../common/db/prisma';
 
 export class MvpService {
   private openai: OpenAI | null = null;
@@ -18,6 +19,7 @@ export class MvpService {
    * 今週のグループMVPを生成してチャットに投稿
    */
   async generateAndPostMvp(userId: string, groupId: string) {
+    const startTime = Date.now();
     // オーナー確認
     const isOwner = await groupRepository.isOwner(groupId, userId);
     if (!isOwner) {
@@ -47,8 +49,8 @@ export class MvpService {
       throw new BadRequestError('今週の活動データがありません');
     }
 
-    // AIに称号を生成させる
-    const mvpTitle = await this.generateMvpTitle(rankings);
+    // AIに称号を生成させる（ログ記録はgenerateMvpTitle内で行う）
+    const mvpTitle = await this.generateMvpTitle(rankings, userId, groupId);
 
     // チャットに投稿
     const message = await chatService.sendMessage(userId, groupId, mvpTitle);
@@ -63,11 +65,15 @@ export class MvpService {
   /**
    * ランキングデータからAIが称号を生成
    */
-  private async generateMvpTitle(rankings: {
-    byDuration: Array<{ rank: number; user: any; value: number; label: string }>;
-    byCount: Array<{ rank: number; user: any; value: number; label: string }>;
-    byMood: Array<{ rank: number; user: any; value: number; label: string }>;
-  }): Promise<string> {
+  private async generateMvpTitle(
+    rankings: {
+      byDuration: Array<{ rank: number; user: any; value: number; label: string }>;
+      byCount: Array<{ rank: number; user: any; value: number; label: string }>;
+      byMood: Array<{ rank: number; user: any; value: number; label: string }>;
+    },
+    userId: string,
+    groupId: string
+  ): Promise<string> {
     // ランキングデータを整形
     const topByDuration = rankings.byDuration.slice(0, 3).map((r) => ({
       rank: r.rank,
@@ -119,6 +125,7 @@ ${topByMood.map((r) => `${r.rank}位: ${r.emoji} ${r.name} - ${r.label}`).join('
     }
 
     try {
+      const llmStartTime = Date.now();
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
@@ -134,11 +141,55 @@ ${topByMood.map((r) => `${r.rank}位: ${r.emoji} ${r.name} - ${r.label}`).join('
         temperature: 0.8,
         max_tokens: 500,
       });
+      const llmDuration = Date.now() - llmStartTime;
+
+      // LLM呼び出しログを記録
+      try {
+        await prisma.systemLog.create({
+          data: {
+            type: 'llm_call',
+            method: 'POST',
+            path: `/api/groups/${groupId}/mvp`,
+            userId,
+            status: 200,
+            duration: llmDuration,
+            message: 'MVP title generation',
+            metadata: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              groupId,
+              tokensUsed: completion.usage?.total_tokens || null,
+            }),
+          },
+        });
+      } catch (logError) {
+        console.error('[MvpService] Failed to save LLM log:', logError);
+      }
 
       const content = completion.choices[0]?.message?.content || '';
       return content.trim() || '🏆 今週のグループMVP 🏆\n\nみんなお疲れ様でした！';
     } catch (error) {
       console.error('[MVP Generation Error]', error);
+      
+      // エラーログを記録
+      try {
+        await prisma.systemLog.create({
+          data: {
+            type: 'error',
+            method: 'POST',
+            path: `/api/groups/${groupId}/mvp`,
+            userId,
+            status: 500,
+            message: `MVP generation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            metadata: JSON.stringify({
+              groupId,
+              errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+            }),
+          },
+        });
+      } catch (logError) {
+        console.error('[MvpService] Failed to save error log:', logError);
+      }
+      
       // フォールバック: シンプルなMVPメッセージを生成
       const topUser = topByDuration[0];
       return `🏆 今週のグループMVP 🏆\n\n⏰ 活動時間の王: ${topUser.emoji} ${topUser.name} (${topUser.label})\n\nみんなお疲れ様でした！来週も頑張りましょう🔥`;

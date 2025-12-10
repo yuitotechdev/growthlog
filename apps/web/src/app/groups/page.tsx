@@ -198,27 +198,6 @@ export default function GroupsPage() {
                     ⚙️ カスタマイズ
                   </Link>
                 </div>
-                <div className="add-category-input" style={{ marginTop: '0.75rem' }}>
-                  <input
-                    type="text"
-                    placeholder="新しいカテゴリ名を入力（Enterで追加）"
-                    className="form-input"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const input = e.currentTarget;
-                        const categoryName = input.value.trim();
-                        if (categoryName && !newGroup.sharedCategories.includes(categoryName)) {
-                          setNewGroup((prev) => ({
-                            ...prev,
-                            sharedCategories: [...prev.sharedCategories, categoryName],
-                          }));
-                          input.value = '';
-                        }
-                      }
-                    }}
-                  />
-                </div>
               </>
             )}
           </div>
