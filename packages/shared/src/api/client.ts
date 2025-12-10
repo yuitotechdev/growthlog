@@ -55,7 +55,7 @@ export class ApiClient {
     return this.request<T>('GET', path);
   }
 
-  async post<T>(path: string, body: unknown): Promise<T> {
+  async post<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>('POST', path, body);
   }
 

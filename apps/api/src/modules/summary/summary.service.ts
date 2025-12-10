@@ -23,10 +23,10 @@ export class SummaryService {
     });
 
     // 集計
-    const totalMinutes = activities.reduce((sum, a) => sum + a.durationMinutes, 0);
+    const totalMinutes = activities.reduce((sum: number, a: any) => sum + a.durationMinutes, 0);
     const activityCount = activities.length;
     const avgMood = activities.length > 0
-      ? (activities.reduce((sum, a) => sum + a.mood, 0) / activities.length).toFixed(1)
+      ? (activities.reduce((sum: number, a: any) => sum + a.mood, 0) / activities.length).toFixed(1)
       : '0';
 
     // カテゴリ別の集計

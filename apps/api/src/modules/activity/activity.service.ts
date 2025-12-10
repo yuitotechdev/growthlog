@@ -34,37 +34,40 @@ export class ActivityService {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    let newStreak = user.streak || 0;
+    const currentStreak: number = (user.streak as number) || 0;
+    const currentLastActiveDate: string | null = (user.lastActiveDate as string | null) || null;
+    
+    let newStreak = currentStreak;
     let newLastActiveDate = activityDate;
     
     // 今日の活動の場合
     if (activityDate === today) {
       // 最後の活動日が昨日の場合、ストリークを継続
-      if (user.lastActiveDate === yesterday) {
-        newStreak = (user.streak || 0) + 1;
+      if (currentLastActiveDate === yesterday) {
+        newStreak = currentStreak + 1;
       }
       // 最後の活動日が今日の場合、ストリークは変わらない
-      else if (user.lastActiveDate === today) {
-        newStreak = user.streak || 0;
+      else if (currentLastActiveDate === today) {
+        newStreak = currentStreak;
       }
       // 最後の活動日が2日以上前の場合、ストリークをリセット
-      else if (user.lastActiveDate && user.lastActiveDate < yesterday) {
+      else if (currentLastActiveDate && currentLastActiveDate < yesterday) {
         newStreak = 1;
       }
       // 初めての活動の場合
-      else if (!user.lastActiveDate) {
+      else if (!currentLastActiveDate) {
         newStreak = 1;
       }
     }
     // 過去の活動の場合、ストリークは更新しない（lastActiveDateのみ更新）
     else {
       // 過去の活動で、lastActiveDateより新しい場合は更新
-      if (!user.lastActiveDate || activityDate > user.lastActiveDate) {
+      if (!currentLastActiveDate || activityDate > currentLastActiveDate) {
         newLastActiveDate = activityDate;
       } else {
-        newLastActiveDate = user.lastActiveDate;
+        newLastActiveDate = currentLastActiveDate;
       }
-      newStreak = user.streak || 0;
+      newStreak = currentStreak;
     }
     
     await prisma.user.update({
