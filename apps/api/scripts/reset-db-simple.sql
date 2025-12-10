@@ -17,3 +17,4 @@ END $$;
 SELECT 'Database reset complete. Run: pnpm prisma migrate deploy' AS message;
 
 
+

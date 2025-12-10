@@ -10,3 +10,4 @@ export type CreateInsightRequest = z.infer<typeof createInsightRequestSchema>;
 
 
 
+

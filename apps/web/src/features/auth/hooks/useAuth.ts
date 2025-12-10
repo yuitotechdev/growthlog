@@ -18,8 +18,21 @@ export function useAuth() {
   }, []);
 
   const login = useCallback((newToken: string) => {
-    localStorage.setItem(TOKEN_KEY, newToken);
-    setToken(newToken);
+    try {
+      if (!newToken || typeof newToken !== 'string') {
+        throw new Error('無効なトークンです');
+      }
+      
+      if (typeof window === 'undefined') {
+        throw new Error('ブラウザ環境でのみ実行できます');
+      }
+      
+      localStorage.setItem(TOKEN_KEY, newToken);
+      setToken(newToken);
+    } catch (error: any) {
+      console.error('[useAuth] Error in login function:', error);
+      throw error;
+    }
   }, []);
 
   const logout = useCallback(() => {
@@ -36,6 +49,3 @@ export function useAuth() {
     logout,
   };
 }
-
-
-

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ApiClient, LoginResponse } from '@growthlog/shared';
 import { useAuth } from '../hooks/useAuth';
 
@@ -13,22 +13,54 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
+  // API URLの検証
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_API_URL) {
+      console.warn('[LoginForm] NEXT_PUBLIC_API_URL is not set, using default:', API_BASE_URL);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
+      // API URLの検証
+      if (!API_BASE_URL || API_BASE_URL === 'http://localhost:3001') {
+        console.warn('[LoginForm] API URL might not be configured correctly:', API_BASE_URL);
+      }
+
       const client = new ApiClient({ baseUrl: API_BASE_URL });
       const response = await client.post<LoginResponse>('/api/auth/login', {
         identifier,
         password,
       });
 
-      login(response.token);
-      window.location.href = '/';
+      if (!response || !response.token) {
+        throw new Error('ログイン応答が無効です');
+      }
+
+      try {
+        login(response.token);
+        window.location.href = '/';
+      } catch (loginError: any) {
+        console.error('[LoginForm] Error in login function:', loginError);
+        throw new Error('認証情報の保存に失敗しました: ' + (loginError.message || '不明なエラー'));
+      }
     } catch (err: any) {
-      setError(err.message || 'ログインに失敗しました');
+      console.error('[LoginForm] Login error:', err);
+      let errorMessage = 'ログインに失敗しました';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        errorMessage = 'APIサーバーに接続できませんでした。ネットワーク接続を確認してください。';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

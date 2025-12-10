@@ -20,3 +20,4 @@ export function MoodDisplay({ mood, size = 'md' }: MoodDisplayProps) {
 
 
 
+

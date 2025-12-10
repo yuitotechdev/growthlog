@@ -41,6 +41,11 @@ export default function HomePage() {
   const { profile, isLoading: profileLoading } = useProfile();
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const router = useRouter();
+  
+  // チュートリアル再開の提案（チュートリアル完了済みで、まだ閉じていない場合）
+  // フックのルールに従い、すべてのフックを条件分岐の前に配置
+  const [showTutorialPrompt, setShowTutorialPrompt] = useState(false);
+  const [tutorialPromptDismissed, setTutorialPromptDismissed] = useState(false);
 
   // 初回ユーザーチェック
   useEffect(() => {
@@ -65,6 +70,16 @@ export default function HomePage() {
 
     checkOnboardingStatus();
   }, [token, authLoading, router]);
+
+  // チュートリアルプロンプトの表示制御
+  useEffect(() => {
+    if (typeof window !== 'undefined' && token) {
+      const onboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
+      const dismissed = localStorage.getItem('tutorial_prompt_dismissed') === 'true';
+      setTutorialPromptDismissed(dismissed);
+      setShowTutorialPrompt(onboardingComplete && !dismissed && !activitiesLoading);
+    }
+  }, [token, activitiesLoading]);
 
   if (authLoading) {
     return <Loading />;
@@ -166,19 +181,6 @@ export default function HomePage() {
   const avgMood = todayActivities.length > 0
     ? (todayActivities.reduce((sum, a) => sum + a.mood, 0) / todayActivities.length).toFixed(1)
     : 'N/A';
-
-  // チュートリアル再開の提案（チュートリアル完了済みで、まだ閉じていない場合）
-  const [showTutorialPrompt, setShowTutorialPrompt] = useState(false);
-  const [tutorialPromptDismissed, setTutorialPromptDismissed] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const onboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
-      const dismissed = localStorage.getItem('tutorial_prompt_dismissed') === 'true';
-      setTutorialPromptDismissed(dismissed);
-      setShowTutorialPrompt(onboardingComplete && !dismissed && !activitiesLoading);
-    }
-  }, [activitiesLoading]);
 
   const handleDismissTutorialPrompt = () => {
     localStorage.setItem('tutorial_prompt_dismissed', 'true');
