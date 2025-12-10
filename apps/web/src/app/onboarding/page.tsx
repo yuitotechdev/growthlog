@@ -202,7 +202,7 @@ export default function OnboardingPage() {
     <div className="onboarding-page">
       {/* ステップバー */}
       <div className="step-bar">
-        <div className={`step ${step === 'template' ? 'active' : step !== 'template' ? 'completed' : ''}`}>
+        <div className={`step ${step === 'template' ? 'active' : ['samples', 'insight', 'delete', 'guide'].includes(step) ? 'completed' : ''}`}>
           <div className="step-number">1</div>
           <div className="step-label">テンプレ選択</div>
         </div>
