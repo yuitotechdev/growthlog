@@ -54,10 +54,16 @@ export default function HomePage() {
   const [deleteSampleDismissed, setDeleteSampleDismissed] = useState(false);
   const [isDeletingSamples, setIsDeletingSamples] = useState(false);
 
-  // 初回ユーザーチェック
+  // 初回ユーザーチェック（チュートリアル完了済みの場合は自動リダイレクトしない）
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       if (!token || authLoading) return;
+      
+      // チュートリアル完了済みの場合は自動リダイレクトしない
+      const onboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
+      if (onboardingComplete) {
+        return;
+      }
       
       try {
         const client = new ApiClient({
@@ -83,24 +89,27 @@ export default function HomePage() {
   const userActivityCount = activities.length;
 
   // チュートリアルプロンプトの表示制御
+  // 条件: チュートリアル完了済み かつ ユーザーが作成した活動が0件 かつ プロンプト未閉鎖
   useEffect(() => {
     if (typeof window !== 'undefined' && token && !activitiesLoading && !allActivitiesLoading) {
       const onboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
       const dismissed = localStorage.getItem('tutorial_prompt_dismissed') === 'true';
       setTutorialPromptDismissed(dismissed);
-      // ユーザーの活動データが0件の場合に表示（サンプルデータがあっても表示）
+      // ユーザーが作成した活動が0件の場合のみ表示（サンプルデータがあっても表示）
       setShowTutorialPrompt(onboardingComplete && !dismissed && userActivityCount === 0);
     }
   }, [token, activitiesLoading, allActivitiesLoading, userActivityCount]);
 
   // サンプルデータ削除プロンプトの表示制御
+  // 条件: サンプルデータあり かつ ユーザーが作成した活動が0件 かつ プロンプト未閉鎖
   useEffect(() => {
-    if (typeof window !== 'undefined' && token && !allActivitiesLoading) {
+    if (typeof window !== 'undefined' && token && !allActivitiesLoading && !activitiesLoading) {
       const dismissed = localStorage.getItem('delete_sample_prompt_dismissed') === 'true';
       setDeleteSampleDismissed(dismissed);
-      setShowDeleteSamplePrompt(hasSampleData && !dismissed);
+      // ユーザーが作成した活動が0件の場合のみ表示
+      setShowDeleteSamplePrompt(hasSampleData && !dismissed && userActivityCount === 0);
     }
-  }, [token, allActivitiesLoading, hasSampleData]);
+  }, [token, allActivitiesLoading, activitiesLoading, hasSampleData, userActivityCount]);
 
   if (authLoading) {
     return <Loading />;
