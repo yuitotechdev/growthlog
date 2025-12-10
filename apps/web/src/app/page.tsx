@@ -17,6 +17,22 @@ import { ApiClient } from '@growthlog/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// useSearchParams()を使用するコンポーネントを分離
+function OnboardingCompleteHandler() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (searchParams.get('onboarding') === 'complete') {
+      sessionStorage.setItem('onboarding_complete', 'true');
+      // URLからパラメータを削除
+      router.replace('/');
+    }
+  }, [searchParams, router]);
+
+  return null;
+}
+
 export default function HomePage() {
   const { token, isLoading: authLoading } = useAuth();
   const today = new Date().toISOString().split('T')[0];
@@ -25,17 +41,6 @@ export default function HomePage() {
   const { profile, isLoading: profileLoading } = useProfile();
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const router = useRouter();
-
-  const searchParams = useSearchParams();
-
-  // オンボーディング完了フラグを設定
-  useEffect(() => {
-    if (searchParams.get('onboarding') === 'complete') {
-      sessionStorage.setItem('onboarding_complete', 'true');
-      // URLからパラメータを削除
-      router.replace('/');
-    }
-  }, [searchParams, router]);
 
   // 初回ユーザーチェック
   useEffect(() => {
@@ -168,6 +173,9 @@ export default function HomePage() {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <OnboardingCompleteHandler />
+      </Suspense>
       <FabGuide />
       <GroupIntroPopup />
       <div className="dashboard">
