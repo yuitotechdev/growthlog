@@ -34,8 +34,8 @@ export class ActivityService {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    const currentStreak: number = (user.streak as number) || 0;
-    const currentLastActiveDate: string | null = (user.lastActiveDate as string | null) || null;
+    const currentStreak: number = ((user as any).streak as number) || 0;
+    const currentLastActiveDate: string | null = ((user as any).lastActiveDate as string | null) || null;
     
     let newStreak = currentStreak;
     let newLastActiveDate = activityDate;
