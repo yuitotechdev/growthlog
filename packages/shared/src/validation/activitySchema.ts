@@ -15,3 +15,4 @@ export type CreateActivityRequest = z.infer<typeof createActivityRequestSchema>;
 export type UpdateActivityRequest = z.infer<typeof updateActivityRequestSchema>;
 
 
+

@@ -13,6 +13,8 @@ export class ProfileRepository {
         avatarEmoji: true,
         isAdmin: true,
         uniqueIdChangedAt: true,
+        streak: true,
+        lastActiveDate: true,
         createdAt: true,
       },
     });
@@ -56,6 +58,8 @@ export class ProfileRepository {
         avatarEmoji: true,
         isAdmin: true,
         uniqueIdChangedAt: true,
+        streak: true,
+        lastActiveDate: true,
         createdAt: true,
       },
     });
@@ -77,8 +81,17 @@ export class ProfileRepository {
         avatarEmoji: true,
         isAdmin: true,
         uniqueIdChangedAt: true,
+        streak: true,
+        lastActiveDate: true,
         createdAt: true,
       },
+    });
+  }
+
+  async deleteUser(userId: string) {
+    // Prismaのカスケード削除により、関連データも自動で削除される
+    return prisma.user.delete({
+      where: { id: userId },
     });
   }
 }

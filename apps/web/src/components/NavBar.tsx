@@ -79,6 +79,10 @@ export function NavBar() {
               <span className="gl-nav-icon">📝</span>
               <span className="gl-nav-label">活動ログ</span>
             </Link>
+            <Link href="/summary/weekly" className={`gl-nav-link ${pathname === '/summary/weekly' ? 'active' : ''}`}>
+              <span className="gl-nav-icon">📊</span>
+              <span className="gl-nav-label">週次サマリー</span>
+            </Link>
             <Link href="/insights" className={`gl-nav-link ${pathname === '/insights' ? 'active' : ''}`}>
               <span className="gl-nav-icon">💡</span>
               <span className="gl-nav-label">インサイト</span>

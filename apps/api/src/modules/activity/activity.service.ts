@@ -2,6 +2,7 @@ import { ActivityRepository } from './activity.repository';
 import { NotFoundError, BadRequestError } from '../../common/errors/http.error';
 import { CreateActivityRequest, UpdateActivityRequest } from '@growthlog/shared';
 import { Activity } from '@prisma/client';
+import { prisma } from '../../common/db/prisma';
 
 export class ActivityService {
   constructor(private repository: ActivityRepository) {}
@@ -12,7 +13,67 @@ export class ActivityService {
     this.validateDate(data.date);
     
     const activity = await this.repository.create({ userId, ...data });
+    
+    // ストリークを更新
+    await this.updateStreak(userId, data.date);
+    
     return this.toDto(activity);
+  }
+  
+  private async updateStreak(userId: string, activityDate: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        streak: true, 
+        lastActiveDate: true,
+      } as any, // Prisma Client再生成後にanyを削除
+    });
+    
+    if (!user) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    let newStreak = user.streak || 0;
+    let newLastActiveDate = activityDate;
+    
+    // 今日の活動の場合
+    if (activityDate === today) {
+      // 最後の活動日が昨日の場合、ストリークを継続
+      if (user.lastActiveDate === yesterday) {
+        newStreak = (user.streak || 0) + 1;
+      }
+      // 最後の活動日が今日の場合、ストリークは変わらない
+      else if (user.lastActiveDate === today) {
+        newStreak = user.streak || 0;
+      }
+      // 最後の活動日が2日以上前の場合、ストリークをリセット
+      else if (user.lastActiveDate && user.lastActiveDate < yesterday) {
+        newStreak = 1;
+      }
+      // 初めての活動の場合
+      else if (!user.lastActiveDate) {
+        newStreak = 1;
+      }
+    }
+    // 過去の活動の場合、ストリークは更新しない（lastActiveDateのみ更新）
+    else {
+      // 過去の活動で、lastActiveDateより新しい場合は更新
+      if (!user.lastActiveDate || activityDate > user.lastActiveDate) {
+        newLastActiveDate = activityDate;
+      } else {
+        newLastActiveDate = user.lastActiveDate;
+      }
+      newStreak = user.streak || 0;
+    }
+    
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        streak: newStreak,
+        lastActiveDate: newLastActiveDate,
+      } as any, // Prisma Client再生成後にanyを削除
+    });
   }
 
   private validateMood(mood: number) {
@@ -32,8 +93,8 @@ export class ActivityService {
     }
   }
 
-  async findByUserId(userId: string) {
-    const activities = await this.repository.findByUserId(userId);
+  async findByUserId(userId: string, options?: { excludeSamples?: boolean }) {
+    const activities = await this.repository.findByUserId(userId, { excludeSamples: options?.excludeSamples });
     return activities.map(this.toDto);
   }
 
@@ -81,6 +142,7 @@ export class ActivityService {
       mood: activity.mood,
       note: activity.note,
       date: activity.date,
+      isSample: (activity as any).isSample || false, // マイグレーション前でも動作
       createdAt: activity.createdAt.toISOString(),
     };
   }

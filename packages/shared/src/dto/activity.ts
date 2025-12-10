@@ -7,7 +7,9 @@ export interface ActivityDto {
   mood: number;
   note: string | null;
   date: string;
+  isSample?: boolean;
   createdAt: string;
 }
+
 
 

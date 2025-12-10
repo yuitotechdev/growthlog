@@ -12,7 +12,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:reset": "prisma migrate reset --force && prisma migrate deploy",
+    "db:reset:script": "npx ts-node scripts/reset-db.ts",
+    "admin:grant": "node scripts/grant-admin-simple.js"
   },
   "dependencies": {
     "@growthlog/shared": "workspace:*",

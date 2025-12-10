@@ -9,3 +9,4 @@ export const createInsightRequestSchema = z.object({
 export type CreateInsightRequest = z.infer<typeof createInsightRequestSchema>;
 
 
+

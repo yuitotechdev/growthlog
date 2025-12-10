@@ -25,6 +25,8 @@ model User {
   isAdmin         Boolean   @default(false)
   isSuspended     Boolean   @default(false)
   lastLoginAt     DateTime?
+  streak          Int       @default(0) // 連続記録日数
+  lastActiveDate  String?   // 最後に活動を記録した日（YYYY-MM-DD形式）
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -64,6 +66,7 @@ model Activity {
   mood            Int      // 1-5
   note            String?
   date            String   // YYYY-MM-DD format
+  isSample        Boolean  @default(false) // サンプルデータかどうか
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -73,6 +76,7 @@ model Activity {
   @@map("activities")
   @@index([userId, date])
   @@index([category])
+  @@index([userId, isSample])
 }
 
 model Insight {
@@ -80,6 +84,8 @@ model Insight {
   userId        String
   summary       String
   advice        String
+  oneLineSummary String? // 1行要約（30文字程度）
+  actionItems   String? // 行動提案（JSON配列文字列）
   startDate     String   // YYYY-MM-DD format
   endDate       String   // YYYY-MM-DD format
   category      String?  // カテゴリでフィルタした場合のカテゴリ名

@@ -9,6 +9,8 @@ export class InsightRepository {
     endDate: string;
     category?: string;
     activityCount: number;
+    oneLineSummary?: string;
+    actionItems?: string;
   }) {
     return prisma.insight.create({ data });
   }

@@ -14,6 +14,8 @@ export interface Profile {
   uniqueId: string | null;
   avatarEmoji: string | null;
   canChangeUniqueId: boolean;
+  streak: number;
+  lastActiveDate: string | null;
   createdAt: string;
 }
 
@@ -87,6 +89,17 @@ export function useProfile() {
     return client.get<{ available: boolean; message: string }>(`/api/profile/check-unique-id/${uniqueId}`);
   }, [token]);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    if (!token) return;
+
+    const client = new ApiClient({
+      baseUrl: API_BASE_URL,
+      getToken: () => token,
+    });
+
+    await client.delete('/api/profile', { password });
+  }, [token]);
+
   return {
     profile,
     isLoading,
@@ -95,6 +108,7 @@ export function useProfile() {
     updateProfile,
     updateUniqueId,
     checkUniqueIdAvailability,
+    deleteAccount,
   };
 }
 

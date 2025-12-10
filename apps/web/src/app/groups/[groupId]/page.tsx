@@ -73,6 +73,7 @@ export default function GroupDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [isGeneratingMvp, setIsGeneratingMvp] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -194,6 +195,26 @@ export default function GroupDetailPage() {
     }
   };
 
+  const handleGenerateMvp = async () => {
+    if (!token || !groupId) return;
+
+    setIsGeneratingMvp(true);
+    try {
+      const client = new ApiClient({ baseUrl: API_BASE_URL, getToken: () => token });
+      await client.post(`/api/groups/${groupId}/mvp`);
+      showMessage('success', '今週のMVPを生成してチャットに投稿しました！');
+      // チャットタブに切り替えて投稿を確認
+      setActiveTab('chat');
+      // メッセージを再取得
+      const messages = await client.get<ChatMessage[]>(`/api/groups/${groupId}/messages`);
+      setMessages(messages || []);
+    } catch (err: any) {
+      showMessage('error', err.message || 'MVPの生成に失敗しました');
+    } finally {
+      setIsGeneratingMvp(false);
+    }
+  };
+
   const moodEmoji = (mood: number) => ['😢', '😐', '🙂', '😊', '😄'][mood - 1] || '🙂';
   const rankEmoji = (rank: number) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
 
@@ -306,6 +327,29 @@ export default function GroupDetailPage() {
 
         {activeTab === 'rankings' && (
           <div className="rankings-tab">
+            {isOwner && rankings && (rankings.byDuration.length > 0 || rankings.byCount.length > 0) && (
+              <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  className="mvp-generate-btn"
+                  onClick={handleGenerateMvp}
+                  disabled={isGeneratingMvp}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor: isGeneratingMvp ? 'not-allowed' : 'pointer',
+                    fontSize: '0.9rem',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+                    opacity: isGeneratingMvp ? 0.7 : 1,
+                  }}
+                >
+                  {isGeneratingMvp ? '生成中...' : '🏆 今週のMVPを生成して投稿'}
+                </button>
+              </div>
+            )}
             {isLoadingData ? (
               <Loading />
             ) : !rankings || (rankings.byDuration.length === 0 && rankings.byCount.length === 0) ? (

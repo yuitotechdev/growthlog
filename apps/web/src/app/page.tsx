@@ -3,19 +3,63 @@
 import { useActivities } from '@/features/activity/hooks/useActivities';
 import { useInsights } from '@/features/insight/hooks/useInsights';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { SignUpForm } from '@/features/auth/components/SignUpForm';
 import { StatCard } from '@/components/ui/StatCard';
 import { Loading } from '@/components/ui/Loading';
+import { FabGuide } from '@/components/FabGuide';
+import { GroupIntroPopup } from '@/components/GroupIntroPopup';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ApiClient } from '@growthlog/shared';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function HomePage() {
   const { token, isLoading: authLoading } = useAuth();
   const today = new Date().toISOString().split('T')[0];
-  const { activities, isLoading: activitiesLoading } = useActivities();
+  const { activities, isLoading: activitiesLoading } = useActivities({ excludeSamples: true });
   const { insights, isLoading: insightsLoading } = useInsights(1);
+  const { profile, isLoading: profileLoading } = useProfile();
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const router = useRouter();
+
+  const searchParams = useSearchParams();
+
+  // オンボーディング完了フラグを設定
+  useEffect(() => {
+    if (searchParams.get('onboarding') === 'complete') {
+      sessionStorage.setItem('onboarding_complete', 'true');
+      // URLからパラメータを削除
+      router.replace('/');
+    }
+  }, [searchParams, router]);
+
+  // 初回ユーザーチェック
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!token || authLoading) return;
+      
+      try {
+        const client = new ApiClient({
+          baseUrl: API_BASE_URL,
+          getToken: () => token,
+        });
+        const response = await client.get<{ needsOnboarding: boolean }>('/api/onboarding/status');
+        
+        if (response.needsOnboarding) {
+          router.push('/onboarding');
+        }
+      } catch (err) {
+        // エラーが発生した場合はスキップ
+        console.error('Failed to check onboarding status:', err);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [token, authLoading, router]);
 
   if (authLoading) {
     return <Loading />;
@@ -118,8 +162,45 @@ export default function HomePage() {
     ? (todayActivities.reduce((sum, a) => sum + a.mood, 0) / todayActivities.length).toFixed(1)
     : 'N/A';
 
+  // チュートリアル再開の提案（活動が0件で、オンボーディング完了済みの場合）
+  const showTutorialPrompt = !activitiesLoading && activities.length === 0 && 
+    sessionStorage.getItem('onboarding_complete') === 'true';
+
   return (
-    <div className="dashboard">
+    <>
+      <FabGuide />
+      <GroupIntroPopup />
+      <div className="dashboard">
+        {/* チュートリアル再開の提案 */}
+        {showTutorialPrompt && (
+          <div className="tutorial-prompt">
+            <div className="tutorial-prompt-content">
+              <span className="tutorial-prompt-icon">📚</span>
+              <div className="tutorial-prompt-text">
+                <h3 className="tutorial-prompt-title">チュートリアルをしますか？</h3>
+                <p className="tutorial-prompt-subtitle">アプリの使い方を確認して、最初の活動を記録しましょう</p>
+              </div>
+              <button
+                className="tutorial-prompt-button"
+                onClick={() => router.push('/onboarding')}
+              >
+                チュートリアルを開始
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ストリーク表示 */}
+        {!profileLoading && profile && profile.streak > 0 && (
+          <div className="streak-banner">
+            <span className="streak-icon">🔥</span>
+            <div className="streak-content">
+              <h3 className="streak-title">連続{profile.streak}日記録中！</h3>
+              <p className="streak-subtitle">毎日の記録を続けましょう</p>
+            </div>
+          </div>
+        )}
+
       <section className="stats-section">
         <h2>🚀 今日のダッシュボード</h2>
         <div className="stats-grid">
@@ -147,8 +228,22 @@ export default function HomePage() {
         <section className="insights-section">
           <h2>💡 最新のインサイト</h2>
           <div className="insight-preview card">
-            <p className="insight-summary">{insights[0].summary}</p>
-            <p className="insight-advice">{insights[0].advice}</p>
+            <div className="insight-preview-one-line">
+              <span className="preview-icon">✨</span>
+              <p className="preview-one-line-text">
+                {insights[0].oneLineSummary || insights[0].summary.substring(0, 50)}
+              </p>
+            </div>
+            {insights[0].actionItems && insights[0].actionItems.length > 0 && (
+              <div className="insight-preview-actions">
+                {insights[0].actionItems.slice(0, 2).map((item, idx) => (
+                  <div key={idx} className="preview-action-item">
+                    <span className="preview-action-icon">→</span>
+                    <span className="preview-action-text">{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <Link href="/insights" className="see-more">
               すべてのインサイトを見る →
             </Link>
@@ -160,6 +255,92 @@ export default function HomePage() {
         .dashboard {
           max-width: 900px;
           margin: 0 auto;
+        }
+        .tutorial-prompt {
+          margin-bottom: 2rem;
+        }
+        .tutorial-prompt-content {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1.5rem;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+          border: 2px solid rgba(99, 102, 241, 0.2);
+          border-radius: 16px;
+        }
+        .tutorial-prompt-icon {
+          font-size: 2.5rem;
+        }
+        .tutorial-prompt-text {
+          flex: 1;
+        }
+        .tutorial-prompt-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin: 0 0 0.25rem 0;
+        }
+        .tutorial-prompt-subtitle {
+          font-size: 0.9rem;
+          color: #64748b;
+          margin: 0;
+        }
+        .tutorial-prompt-button {
+          padding: 0.75rem 1.5rem;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          color: white;
+          border: none;
+          border-radius: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+        .tutorial-prompt-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+        @media (max-width: 640px) {
+          .tutorial-prompt-content {
+            flex-direction: column;
+            text-align: center;
+          }
+          .tutorial-prompt-button {
+            width: 100%;
+          }
+        }
+        .streak-banner {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1.5rem;
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(251, 146, 60, 0.1) 100%);
+          border: 2px solid rgba(239, 68, 68, 0.2);
+          border-radius: 16px;
+          margin-bottom: 2rem;
+        }
+        .streak-icon {
+          font-size: 2.5rem;
+          animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .streak-content {
+          flex: 1;
+        }
+        .streak-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin: 0 0 0.25rem 0;
+        }
+        .streak-subtitle {
+          font-size: 0.9rem;
+          color: #64748b;
+          margin: 0;
         }
         .stats-section, .insights-section {
           margin-bottom: 2.5rem;
@@ -197,21 +378,56 @@ export default function HomePage() {
         .insight-preview {
           padding: 1.5rem;
         }
-        .insight-summary {
-          font-size: 1.1rem;
-          color: #1e293b;
-          margin-bottom: 0.75rem;
-        }
-        .insight-advice {
-          color: #64748b;
+        .insight-preview-one-line {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 1rem;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+          border-radius: 12px;
           margin-bottom: 1rem;
+        }
+        .preview-icon {
+          font-size: 1.5rem;
+        }
+        .preview-one-line-text {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #1e293b;
+          margin: 0;
+          flex: 1;
+        }
+        .insight-preview-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+        }
+        .preview-action-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          background: rgba(16, 185, 129, 0.1);
+          border-radius: 8px;
+        }
+        .preview-action-icon {
+          color: #10b981;
+          font-weight: 600;
+        }
+        .preview-action-text {
+          color: #1e293b;
+          font-size: 0.9rem;
         }
         .see-more {
           color: #6366f1;
           font-weight: 600;
+          display: inline-block;
+          margin-top: 0.5rem;
         }
       `}</style>
-    </div>
+      </div>
+    </>
   );
 }
 

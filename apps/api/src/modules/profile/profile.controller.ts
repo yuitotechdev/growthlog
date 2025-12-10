@@ -61,6 +61,22 @@ export class ProfileController {
       next(error);
     }
   };
+
+  deleteAccount = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId!;
+      const { password } = req.body;
+
+      if (!password) {
+        return next(new BadRequestError('パスワードを入力してください'));
+      }
+
+      await profileService.deleteAccount(userId, password);
+      res.json({ message: 'アカウントが削除されました' });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const profileController = new ProfileController();

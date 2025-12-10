@@ -9,61 +9,87 @@ export class AuthService {
   constructor(private repository: AuthRepository) {}
 
   async signUp(email: string, password: string, uniqueId: string, name?: string) {
-    // メールアドレスを小文字に正規化
-    const normalizedEmail = email.toLowerCase().trim();
-    
-    // Check if email already exists
-    const existingUser = await this.repository.findByEmail(normalizedEmail);
-    if (existingUser) {
-      throw new ConflictError('このメールアドレスは既に登録されています');
+    try {
+      // メールアドレスを小文字に正規化
+      const normalizedEmail = email.toLowerCase().trim();
+      
+      console.log('[Auth] SignUp: Validating input...');
+      
+      // Check if email already exists
+      const existingUser = await this.repository.findByEmail(normalizedEmail);
+      if (existingUser) {
+        throw new ConflictError('このメールアドレスは既に登録されています');
+      }
+
+      // Check if uniqueId already exists
+      const existingUniqueId = await this.repository.findByUniqueId(uniqueId);
+      if (existingUniqueId) {
+        throw new ConflictError('このユーザーIDは既に使用されています');
+      }
+
+      // Validate email format
+      if (!this.isValidEmail(email)) {
+        throw new BadRequestError('有効なメールアドレスを入力してください');
+      }
+
+      // Validate uniqueId format
+      if (!this.isValidUniqueId(uniqueId)) {
+        throw new BadRequestError('ユーザーIDは3文字以上20文字以下の英数字とアンダースコアのみ使用できます');
+      }
+
+      // Validate password
+      if (password.length < 6) {
+        throw new BadRequestError('パスワードは6文字以上で入力してください');
+      }
+
+      console.log('[Auth] SignUp: Creating user...');
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user (メール認証なし)
+      // メールアドレスは小文字に正規化して保存
+      const user = await this.repository.create({
+        email: normalizedEmail,
+        password: hashedPassword,
+        name,
+        uniqueId,
+        emailVerified: true, // メール認証をスキップして、すぐに認証済みにする
+      });
+
+      console.log('[Auth] SignUp: User created, initializing categories...', { userId: user.id });
+
+      // Initialize default categories for the user
+      try {
+        await categoryRepository.initializeDefaultCategories(user.id);
+        console.log('[Auth] SignUp: Categories initialized');
+      } catch (categoryError: any) {
+        console.error('[Auth] SignUp: Failed to initialize categories:', categoryError);
+        // カテゴリの初期化に失敗してもユーザー作成は成功とする
+        // （後で手動でカテゴリを追加できる）
+      }
+
+      // Generate token
+      const token = this.generateToken(user.id);
+      console.log('[Auth] SignUp: Token generated');
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          uniqueId: user.uniqueId,
+          emailVerified: true,
+        },
+        token,
+      };
+    } catch (error: any) {
+      console.error('[Auth] SignUp error:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      throw error;
     }
-
-    // Check if uniqueId already exists
-    const existingUniqueId = await this.repository.findByUniqueId(uniqueId);
-    if (existingUniqueId) {
-      throw new ConflictError('このユーザーIDは既に使用されています');
-    }
-
-    // Validate email format
-    if (!this.isValidEmail(email)) {
-      throw new BadRequestError('有効なメールアドレスを入力してください');
-    }
-
-    // Validate uniqueId format
-    if (!this.isValidUniqueId(uniqueId)) {
-      throw new BadRequestError('ユーザーIDは3文字以上20文字以下の英数字とアンダースコアのみ使用できます');
-    }
-
-    // Validate password
-    if (password.length < 6) {
-      throw new BadRequestError('パスワードは6文字以上で入力してください');
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user (メール認証なし)
-    // メールアドレスは小文字に正規化して保存
-    const user = await this.repository.create({
-      email: normalizedEmail,
-      password: hashedPassword,
-      name,
-      uniqueId,
-      emailVerified: true, // メール認証をスキップして、すぐに認証済みにする
-    });
-
-    // Initialize default categories for the user
-    await categoryRepository.initializeDefaultCategories(user.id);
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        uniqueId: user.uniqueId,
-        emailVerified: true,
-      },
-    };
   }
 
   async login(identifier: string, password: string) {

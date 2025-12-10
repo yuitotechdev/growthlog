@@ -36,16 +36,41 @@ export function InsightList() {
             <span className="insight-count">{insight.activityCount}件の活動</span>
           </div>
           
-          <div className="insight-content">
-            <div className="insight-section">
-              <h4>📊 振り返り</h4>
-              <p>{insight.summary}</p>
-            </div>
-            <div className="insight-section">
-              <h4>💡 改善提案</h4>
-              <p>{insight.advice}</p>
-            </div>
+          {/* 1行要約 */}
+          <div className="insight-one-line">
+            <span className="one-line-icon">✨</span>
+            <p className="one-line-text">{insight.oneLineSummary || insight.summary.substring(0, 50)}</p>
           </div>
+
+          {/* 行動提案 */}
+          {insight.actionItems && insight.actionItems.length > 0 && (
+            <div className="insight-actions">
+              <h4 className="actions-title">🎯 今すぐできること</h4>
+              <div className="actions-list">
+                {insight.actionItems.map((item, idx) => (
+                  <div key={idx} className="action-item">
+                    <span className="action-icon">→</span>
+                    <span className="action-text">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 詳細（折りたたみ可能） */}
+          <details className="insight-details">
+            <summary className="details-summary">📊 詳細を見る</summary>
+            <div className="insight-content">
+              <div className="insight-section">
+                <h4>📊 振り返り</h4>
+                <p>{insight.summary}</p>
+              </div>
+              <div className="insight-section">
+                <h4>💡 改善提案</h4>
+                <p>{insight.advice}</p>
+              </div>
+            </div>
+          </details>
 
           <div className="insight-footer">
             <span className="insight-date">
@@ -79,7 +104,7 @@ export function InsightList() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 1.25rem;
+          margin-bottom: 1rem;
           padding-bottom: 1rem;
           border-bottom: 1px solid rgba(0, 0, 0, 0.08);
         }
@@ -94,9 +119,81 @@ export function InsightList() {
           background: rgba(99, 102, 241, 0.1);
           border-radius: 20px;
         }
+        .insight-one-line {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 1rem;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+          border-radius: 12px;
+          margin-bottom: 1rem;
+        }
+        .one-line-icon {
+          font-size: 1.5rem;
+        }
+        .one-line-text {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #1e293b;
+          margin: 0;
+          flex: 1;
+        }
+        .insight-actions {
+          margin-bottom: 1rem;
+        }
+        .actions-title {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #1e293b;
+          margin-bottom: 0.75rem;
+        }
+        .actions-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .action-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          background: rgba(16, 185, 129, 0.1);
+          border-radius: 8px;
+        }
+        .action-icon {
+          color: #10b981;
+          font-weight: 600;
+        }
+        .action-text {
+          color: #1e293b;
+          font-size: 0.9rem;
+        }
+        .insight-details {
+          margin-top: 1rem;
+        }
+        .details-summary {
+          cursor: pointer;
+          padding: 0.75rem;
+          background: rgba(0, 0, 0, 0.03);
+          border-radius: 8px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #6366f1;
+          list-style: none;
+          user-select: none;
+        }
+        .details-summary:hover {
+          background: rgba(0, 0, 0, 0.05);
+        }
+        .details-summary::-webkit-details-marker {
+          display: none;
+        }
         .insight-content {
           display: grid;
           gap: 1.25rem;
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
         .insight-section h4 {
           font-size: 0.9rem;
@@ -140,5 +237,6 @@ export function InsightList() {
     </div>
   );
 }
+
 
 

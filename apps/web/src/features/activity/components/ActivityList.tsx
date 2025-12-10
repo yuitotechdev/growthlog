@@ -54,3 +54,4 @@ export function ActivityList({ activities, isLoading, error, onDelete, onUpdate 
 }
 
 
+

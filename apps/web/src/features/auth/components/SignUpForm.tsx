@@ -62,7 +62,8 @@ export function SignUpForm() {
             password,
           });
           login(loginResponse.token);
-          window.location.href = '/';
+          // 初回ユーザーはオンボーディングページにリダイレクト
+          window.location.href = '/onboarding';
         } catch (err: any) {
           // ログインに失敗した場合は、通常のログインページにリダイレクト
           window.location.href = '/auth/login';

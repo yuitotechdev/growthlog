@@ -3,6 +3,8 @@ export interface InsightDto {
   userId: string;
   summary: string;
   advice: string;
+  oneLineSummary: string;
+  actionItems: string[];
   period: {
     startDate: string;
     endDate: string;
@@ -11,5 +13,6 @@ export interface InsightDto {
   activityCount: number;
   createdAt: string;
 }
+
 
 

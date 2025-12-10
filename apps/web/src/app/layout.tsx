@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { NavBar } from '@/components/NavBar';
+import { FloatingActionButton } from '@/components/FloatingActionButton';
 
 export const metadata: Metadata = {
   title: 'GrowthLog - 成長記録アプリ',
@@ -19,9 +20,11 @@ export default function RootLayout({
         <main className="main-container">
           {children}
         </main>
+        <FloatingActionButton />
       </body>
     </html>
   );
 }
+
 
 

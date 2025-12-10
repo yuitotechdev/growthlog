@@ -59,10 +59,11 @@ export function ActivityForm({ onSuccess }: ActivityFormProps) {
   }, [fetchGroups]);
 
   useEffect(() => {
-    if (categories.length > 0 && !formData.category) {
+    // カテゴリが読み込まれたら最初のカテゴリを選択
+    if (categories.length > 0 && !formData.category && !categoriesLoading) {
       setFormData((prev) => ({ ...prev, category: categories[0].name }));
     }
-  }, [categories, formData.category]);
+  }, [categories, formData.category, categoriesLoading]);
 
   // 選択したカテゴリで共有可能なグループをフィルタ
   const eligibleGroups = groups.filter((g) => {

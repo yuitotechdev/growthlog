@@ -4,14 +4,16 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useGroups } from '@/features/group/hooks/useGroups';
 import { useCategories } from '@/features/category/hooks/useCategories';
+import { GROUP_TEMPLATES, GroupTemplate } from '@/features/group/types';
 import { Loading } from '@/components/ui/Loading';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function GroupsPage() {
-  const { groups, isLoading, error, createGroup, joinGroup } = useGroups();
-  const { categories = [] } = useCategories();
+  const { groups, isLoading, error, createGroup, joinGroup, refetch } = useGroups();
+  const { categories = [], isLoading: categoriesLoading, refetch: refetchCategories } = useCategories();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<GroupTemplate | null>(null);
   const [newGroup, setNewGroup] = useState({ name: '', description: '', sharedCategories: [] as string[] });
   const [inviteCode, setInviteCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,7 +39,10 @@ export default function GroupsPage() {
       await createGroup(newGroup);
       showMessage('success', 'グループを作成しました');
       setNewGroup({ name: '', description: '', sharedCategories: [] });
+      setSelectedTemplate(null);
       setShowCreateForm(false);
+      // グループ一覧を再取得（念のため）
+      await refetch();
     } catch (err: any) {
       showMessage('error', err.message || 'グループの作成に失敗しました');
     } finally {
@@ -103,6 +108,7 @@ export default function GroupsPage() {
               description: '',
               sharedCategories: [],
             });
+            setSelectedTemplate(null);
             setShowCreateForm(true);
           }}>
             ➕ 新規作成
@@ -116,6 +122,35 @@ export default function GroupsPage() {
           <div className="form-header">
             <h2>✨ 新しいグループを作成</h2>
             <button className="close-btn" onClick={() => setShowCreateForm(false)}>✕</button>
+          </div>
+
+          {/* テンプレート選択 */}
+          <div className="form-field">
+            <label>テンプレートを選択（オプション）</label>
+            <div className="template-grid">
+              {GROUP_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className={`template-btn ${selectedTemplate?.id === template.id ? 'selected' : ''}`}
+                  onClick={() => {
+                    setSelectedTemplate(template);
+                    // テンプレートのカテゴリを自動設定（ユーザーのカテゴリに存在するもののみ）
+                    const availableCategories = template.defaultCategories.filter(catName =>
+                      categories.some(cat => cat.name === catName)
+                    );
+                    setNewGroup({
+                      name: template.id === 'custom' ? '' : template.name,
+                      description: template.defaultDescription || '',
+                      sharedCategories: availableCategories,
+                    });
+                  }}
+                >
+                  <span className="template-emoji">{template.emoji}</span>
+                  <span className="template-name">{template.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
           
           <div className="form-field">
@@ -142,20 +177,50 @@ export default function GroupsPage() {
 
           <div className="form-field">
             <label>共有するカテゴリ</label>
-            <p className="form-hint">メンバーがこれらのカテゴリの活動をグループに共有できます</p>
-            <div className="category-chips">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={`category-chip ${newGroup.sharedCategories.includes(cat.name) ? 'selected' : ''}`}
-                  onClick={() => toggleCategory(cat.name)}
-                  style={{ '--cat-color': cat.color } as React.CSSProperties}
-                >
-                  {cat.emoji} {cat.name}
-                </button>
-              ))}
-            </div>
+            <p className="form-hint">メンバーがこれらのカテゴリの活動をグループに共有できます。</p>
+            {categoriesLoading ? (
+              <p>カテゴリを読み込み中...</p>
+            ) : (
+              <>
+                <div className="category-select">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`category-btn ${newGroup.sharedCategories.includes(cat.name) ? 'selected' : ''}`}
+                      onClick={() => toggleCategory(cat.name)}
+                      style={{ '--cat-color': cat.color } as React.CSSProperties}
+                    >
+                      {cat.emoji} {cat.name}
+                    </button>
+                  ))}
+                  <Link href="/settings/categories" className="customize-btn">
+                    ⚙️ カスタマイズ
+                  </Link>
+                </div>
+                <div className="add-category-input" style={{ marginTop: '0.75rem' }}>
+                  <input
+                    type="text"
+                    placeholder="新しいカテゴリ名を入力（Enterで追加）"
+                    className="form-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.currentTarget;
+                        const categoryName = input.value.trim();
+                        if (categoryName && !newGroup.sharedCategories.includes(categoryName)) {
+                          setNewGroup((prev) => ({
+                            ...prev,
+                            sharedCategories: [...prev.sharedCategories, categoryName],
+                          }));
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="form-actions">
@@ -424,34 +489,86 @@ export default function GroupsPage() {
           margin: 0.5rem 0;
         }
 
-        .category-chips {
+        .template-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+        .template-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 1rem;
+          border: 2px solid rgba(99, 102, 241, 0.2);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.7);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .template-btn:hover {
+          border-color: #6366f1;
+          background: white;
+          transform: translateY(-2px);
+        }
+        .template-btn.selected {
+          border-color: #6366f1;
+          background: rgba(99, 102, 241, 0.1);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        .template-emoji {
+          font-size: 2rem;
+        }
+        .template-name {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .category-select {
           display: flex;
           flex-wrap: wrap;
           gap: 0.5rem;
         }
 
-        .category-chip {
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.5rem 0.875rem;
+        .category-btn {
+          padding: 0.5rem 1rem;
+          background: rgba(255, 255, 255, 0.7);
           border: 2px solid rgba(0, 0, 0, 0.1);
           border-radius: 20px;
-          background: rgba(255, 255, 255, 0.7);
           font-size: 0.85rem;
           cursor: pointer;
           transition: all 0.2s ease;
           font-family: inherit;
         }
 
-        .category-chip:hover {
+        .category-btn:hover {
           background: white;
         }
 
-        .category-chip.selected {
+        .category-btn.selected {
           border-color: var(--cat-color, #6366f1);
           background: white;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .customize-btn {
+          padding: 0.5rem 1rem;
+          background: rgba(99, 102, 241, 0.1);
+          border: 2px solid rgba(99, 102, 241, 0.2);
+          border-radius: 20px;
+          font-size: 0.85rem;
+          color: #6366f1;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          transition: all 0.2s ease;
+        }
+
+        .customize-btn:hover {
+          background: rgba(99, 102, 241, 0.15);
+          border-color: #6366f1;
         }
 
         .form-actions {

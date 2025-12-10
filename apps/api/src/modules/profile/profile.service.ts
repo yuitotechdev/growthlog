@@ -92,9 +92,11 @@ export class ProfileService {
     name: string | null;
     username: string | null;
     uniqueId: string | null;
-      avatarEmoji: string | null;
+    avatarEmoji: string | null;
     isAdmin: boolean;
     uniqueIdChangedAt: Date | null;
+    streak: number;
+    lastActiveDate: string | null;
     createdAt: Date;
   }) {
     return {
@@ -106,6 +108,8 @@ export class ProfileService {
       avatarEmoji: user.avatarEmoji,
       isAdmin: user.isAdmin,
       canChangeUniqueId: this.canChangeUniqueId(user.uniqueIdChangedAt),
+      streak: user.streak,
+      lastActiveDate: user.lastActiveDate,
       createdAt: user.createdAt.toISOString(),
     };
   }
@@ -113,6 +117,35 @@ export class ProfileService {
   private canChangeUniqueId(lastChangedAt: Date | null): boolean {
     if (!lastChangedAt) return true;
     return Date.now() - new Date(lastChangedAt).getTime() >= ONE_MONTH_MS;
+  }
+
+  async deleteAccount(userId: string, password: string) {
+    // パスワード確認のためにユーザーを取得
+    const user = await profileRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('ユーザーが見つかりません');
+    }
+
+    // パスワード確認
+    const bcrypt = require('bcryptjs');
+    const { prisma } = require('../../common/db/prisma');
+    const fullUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true },
+    });
+    
+    if (!fullUser) {
+      throw new NotFoundError('ユーザーが見つかりません');
+    }
+
+    const isValidPassword = await bcrypt.compare(password, fullUser.password);
+    if (!isValidPassword) {
+      throw new BadRequestError('パスワードが正しくありません');
+    }
+
+    // ユーザーを削除（カスケード削除により関連データも削除される）
+    await profileRepository.deleteUser(userId);
+    return { message: 'アカウントが削除されました' };
   }
 }
 

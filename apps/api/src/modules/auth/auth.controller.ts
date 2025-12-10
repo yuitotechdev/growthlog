@@ -13,9 +13,16 @@ export class AuthController {
         return next(new BadRequestError('メールアドレス、パスワード、ユーザーIDは必須です'));
       }
 
+      console.log('[Auth] SignUp request:', { email, uniqueId, hasPassword: !!password });
       const result = await this.service.signUp(email, password, uniqueId, name);
+      console.log('[Auth] SignUp success:', { userId: result.user.id });
       res.status(201).json(result);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Auth] SignUp error:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
       next(error);
     }
   };

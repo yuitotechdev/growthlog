@@ -6,7 +6,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export function useActivities() {
+export function useActivities(options?: { excludeSamples?: boolean }) {
   const [activities, setActivities] = useState<ActivityDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,10 @@ export function useActivities() {
         getToken: () => token,
       });
 
-      const data = await client.get<ActivityDto[]>('/api/activities');
+      const url = options?.excludeSamples 
+        ? '/api/activities?excludeSamples=true'
+        : '/api/activities';
+      const data = await client.get<ActivityDto[]>(url);
       setActivities(data);
       setError(null);
     } catch (err: any) {
@@ -33,7 +36,7 @@ export function useActivities() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, options?.excludeSamples]);
 
   useEffect(() => {
     fetchActivities();
@@ -71,5 +74,6 @@ export function useActivities() {
     updateActivity,
   };
 }
+
 
 

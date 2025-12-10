@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useProfile } from '@/features/profile/hooks/useProfile';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Loading } from '@/components/ui/Loading';
 import Link from 'next/link';
 
 export default function ProfileSettingsPage() {
-  const { profile, isLoading, updateProfile, updateUniqueId, checkUniqueIdAvailability } = useProfile();
+  const { profile, isLoading, updateProfile, updateUniqueId, checkUniqueIdAvailability, deleteAccount } = useProfile();
+  const { logout } = useAuth();
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [uniqueId, setUniqueId] = useState('');
   const [uniqueIdStatus, setUniqueIdStatus] = useState<{ available: boolean; message: string } | null>(null);
@@ -14,6 +18,9 @@ export default function ProfileSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedEmoji, setSelectedEmoji] = useState<string>('');
   const [isSavingEmoji, setIsSavingEmoji] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const emojiGridRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -114,6 +121,32 @@ export default function ProfileSettingsPage() {
       showMessage('error', err.message || '絵文字の削除に失敗しました');
     } finally {
       setIsSavingEmoji(false);
+    }
+  };
+
+  // アカウント削除
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      showMessage('error', 'パスワードを入力してください');
+      return;
+    }
+
+    if (!confirm('本当にアカウントを削除しますか？この操作は取り消せません。')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+      showMessage('success', 'アカウントが削除されました');
+      // ログアウトしてホームにリダイレクト
+      setTimeout(() => {
+        logout();
+        router.push('/');
+      }, 2000);
+    } catch (err: any) {
+      showMessage('error', err.message || 'アカウントの削除に失敗しました');
+      setIsDeleting(false);
     }
   };
 
@@ -336,6 +369,69 @@ export default function ProfileSettingsPage() {
             disabled
           />
           <p className="form-hint">メールアドレスは変更できません</p>
+        </div>
+
+        {/* アカウント削除セクション */}
+        <div className="form-section danger-section">
+          <h3 className="danger-title">⚠️ アカウント削除</h3>
+          <p className="danger-description">
+            アカウントを削除すると、すべてのデータ（活動ログ、インサイト、カテゴリ、グループ情報など）が完全に削除され、元に戻すことはできません。
+          </p>
+          
+          {!showDeleteConfirm ? (
+            <button
+              className="delete-account-btn"
+              onClick={() => setShowDeleteConfirm(true)}
+              type="button"
+            >
+              🗑️ アカウントを削除する
+            </button>
+          ) : (
+            <div className="delete-confirm">
+              <div className="delete-warning-box">
+                <p className="warning-text">
+                  <strong>本当にアカウントを削除しますか？</strong>
+                </p>
+                <p className="warning-details">
+                  この操作は取り消せません。すべてのデータが永久に削除されます。
+                </p>
+              </div>
+              
+              <div className="delete-password-input">
+                <label className="form-label">パスワードを入力してください</label>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  className="form-input"
+                  placeholder="パスワードを入力"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <div className="delete-actions">
+                <button
+                  className="cancel-delete-btn"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeletePassword('');
+                  }}
+                  disabled={isDeleting}
+                  type="button"
+                >
+                  キャンセル
+                </button>
+                <button
+                  className="confirm-delete-btn"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || !deletePassword}
+                  type="button"
+                >
+                  {isDeleting ? '削除中...' : 'アカウントを削除する'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -760,6 +856,130 @@ export default function ProfileSettingsPage() {
         .save-btn:disabled {
           background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
           cursor: not-allowed;
+        }
+
+        .danger-section {
+          margin-top: 3rem;
+          padding-top: 2rem;
+          border-top: 2px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .danger-title {
+          color: #ef4444;
+          font-size: 1.25rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .danger-description {
+          color: #64748b;
+          font-size: 0.9rem;
+          line-height: 1.6;
+          margin-bottom: 1.5rem;
+        }
+
+        .delete-account-btn {
+          padding: 0.875rem 1.5rem;
+          background: rgba(239, 68, 68, 0.1);
+          border: 2px solid #ef4444;
+          border-radius: 10px;
+          color: #ef4444;
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+
+        .delete-account-btn:hover {
+          background: rgba(239, 68, 68, 0.2);
+        }
+
+        .delete-confirm {
+          animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .delete-warning-box {
+          padding: 1.5rem;
+          background: rgba(239, 68, 68, 0.1);
+          border: 2px solid rgba(239, 68, 68, 0.3);
+          border-radius: 12px;
+          margin-bottom: 1.5rem;
+        }
+
+        .warning-text {
+          color: #ef4444;
+          font-size: 1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .warning-details {
+          color: #64748b;
+          font-size: 0.9rem;
+          margin: 0;
+        }
+
+        .delete-password-input {
+          margin-bottom: 1.5rem;
+        }
+
+        .delete-actions {
+          display: flex;
+          gap: 1rem;
+        }
+
+        .cancel-delete-btn {
+          flex: 1;
+          padding: 0.875rem 1.5rem;
+          background: rgba(0, 0, 0, 0.05);
+          border: 2px solid rgba(0, 0, 0, 0.1);
+          border-radius: 10px;
+          color: #64748b;
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+
+        .cancel-delete-btn:hover:not(:disabled) {
+          background: rgba(0, 0, 0, 0.1);
+        }
+
+        .confirm-delete-btn {
+          flex: 1;
+          padding: 0.875rem 1.5rem;
+          background: #ef4444;
+          border: none;
+          border-radius: 10px;
+          color: white;
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+
+        .confirm-delete-btn:hover:not(:disabled) {
+          background: #dc2626;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .confirm-delete-btn:disabled {
+          background: #94a3b8;
+          cursor: not-allowed;
+          transform: none;
         }
       `}</style>
     </div>

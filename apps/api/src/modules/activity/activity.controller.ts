@@ -25,9 +25,18 @@ export class ActivityController {
   findByUserId = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.userId!;
-      const result = await this.service.findByUserId(userId);
+      const excludeSamples = req.query.excludeSamples === 'true';
+      console.log('[ActivityController] Finding activities for user:', userId, 'excludeSamples:', excludeSamples);
+      const result = await this.service.findByUserId(userId, { excludeSamples });
+      console.log('[ActivityController] Found activities:', result.length);
       res.json(result);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[ActivityController] Error finding activities:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+        userId: req.userId,
+      });
       next(error);
     }
   };

@@ -22,6 +22,13 @@ import { profileController } from './modules/profile/profile.controller';
 import { groupController } from './modules/group/group.controller';
 import { sharedActivityController } from './modules/group/shared-activity.controller';
 import { chatController } from './modules/group/chat.controller';
+import { mvpController } from './modules/group/mvp.controller';
+import { OnboardingController } from './modules/onboarding/onboarding.controller';
+import { OnboardingService } from './modules/onboarding/onboarding.service';
+import { OnboardingRepository } from './modules/onboarding/onboarding.repository';
+import { CategoryRepository } from './modules/category/category.repository';
+import { SummaryController } from './modules/summary/summary.controller';
+import { SummaryService } from './modules/summary/summary.service';
 
 const app: Application = express();
 
@@ -87,6 +94,8 @@ const authRepository = new AuthRepository();
 const activityRepository = new ActivityRepository();
 const insightRepository = new InsightRepository();
 const adminRepository = new AdminRepository();
+const onboardingRepository = new OnboardingRepository();
+const categoryRepository = new CategoryRepository();
 
 // Initialize services
 const authService = new AuthService(authRepository);
@@ -99,6 +108,10 @@ const authController = new AuthController(authService);
 const activityController = new ActivityController(activityService);
 const insightController = new InsightController(insightService);
 const adminController = new AdminController(adminService);
+const onboardingService = new OnboardingService(onboardingRepository, categoryRepository, activityRepository);
+const onboardingController = new OnboardingController(onboardingService);
+const summaryService = new SummaryService(activityRepository, insightService);
+const summaryController = new SummaryController(summaryService);
 
 // Routes
 app.get('/', (req, res) => {
@@ -131,6 +144,7 @@ app.put('/api/profile', authMiddleware, profileController.updateProfile);
 app.put('/api/profile/unique-id', authMiddleware, profileController.updateUniqueId);
 app.get('/api/profile/check-unique-id/:uniqueId', authMiddleware, profileController.checkUniqueIdAvailability);
 app.get('/api/users/:uniqueId', authMiddleware, profileController.getPublicProfile);
+app.delete('/api/profile', authMiddleware, profileController.deleteAccount);
 
 // Activity routes (authentication required)
 app.post('/api/activities', authMiddleware, activityController.create);
@@ -153,6 +167,15 @@ app.put('/api/categories/reorder', authMiddleware, categoryController.reorderCat
 app.get('/api/categories/:id', authMiddleware, categoryController.getCategory);
 app.put('/api/categories/:id', authMiddleware, categoryController.updateCategory);
 app.delete('/api/categories/:id', authMiddleware, categoryController.deleteCategory);
+
+// Onboarding routes (authentication required)
+app.post('/api/onboarding/apply-template', authMiddleware, onboardingController.applyTemplate);
+app.get('/api/onboarding/status', authMiddleware, onboardingController.checkOnboardingStatus);
+app.delete('/api/onboarding/samples', authMiddleware, onboardingController.deleteSampleActivities);
+
+// Summary routes (authentication required)
+app.get('/api/summary/weekly', authMiddleware, summaryController.getCurrentWeekSummary);
+app.get('/api/summary/weekly/:weekStart', authMiddleware, summaryController.getWeeklySummary);
 
 // Group routes (authentication required)
 app.get('/api/groups', authMiddleware, groupController.getMyGroups);
@@ -179,6 +202,9 @@ app.get('/api/groups/:groupId/rankings', authMiddleware, sharedActivityControlle
 app.get('/api/groups/:groupId/messages', authMiddleware, chatController.getMessages);
 app.post('/api/groups/:groupId/messages', authMiddleware, chatController.sendMessage);
 app.delete('/api/messages/:messageId', authMiddleware, chatController.deleteMessage);
+
+// MVP routes (authentication required)
+app.post('/api/groups/:groupId/mvp', authMiddleware, mvpController.generateAndPostMvp);
 
 // Admin routes (admin authentication required)
 app.get('/api/admin/users', authMiddleware, adminMiddleware, adminController.getUsers);

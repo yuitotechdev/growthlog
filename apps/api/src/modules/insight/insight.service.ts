@@ -31,8 +31,9 @@ export class InsightService {
       throw new BadRequestError('指定された期間に活動がありません');
     }
 
-    const { summary, advice } = await this.generateAiInsight(activities);
+    const { summary, advice, oneLineSummary, actionItems } = await this.generateAiInsight(activities);
 
+    // actionItemsをJSON文字列として保存
     const insight = await this.insightRepository.create({
       userId,
       summary,
@@ -41,6 +42,8 @@ export class InsightService {
       endDate,
       category,
       activityCount: activities.length,
+      oneLineSummary,
+      actionItems: JSON.stringify(actionItems),
     });
 
     return this.toDto(insight);
@@ -73,10 +76,18 @@ export class InsightService {
     durationMinutes: number;
     mood: number;
     date: string;
-  }>): Promise<{ summary: string; advice: string }> {
+  }>): Promise<{ summary: string; advice: string; oneLineSummary: string; actionItems: string[] }> {
+    const totalMinutes = activities.reduce((sum, a) => sum + a.durationMinutes, 0);
+    const avgMood = (activities.reduce((sum, a) => sum + a.mood, 0) / activities.length).toFixed(1);
+
     if (!this.openai) {
       return {
-        summary: `この期間に${activities.length}件の活動を記録しました。総活動時間は${activities.reduce((sum, a) => sum + a.durationMinutes, 0)}分でした。`,
+        oneLineSummary: `この期間に${activities.length}件の活動を記録しました（合計${totalMinutes}分）`,
+        actionItems: [
+          '週ごとに目標を設定してみましょう',
+          '継続的に活動を記録することで、自分のパターンが見えてきます',
+        ],
+        summary: `この期間に${activities.length}件の活動を記録しました。総活動時間は${totalMinutes}分でした。平均気分は${avgMood}/5でした。`,
         advice: '継続的に活動を記録することで、自分のパターンが見えてきます。週ごとに目標を設定してみましょう。',
       };
     }
@@ -85,9 +96,6 @@ export class InsightService {
       const activitySummary = activities
         .map((a) => `- ${a.title} (${a.category}): ${a.durationMinutes}分, 気分: ${a.mood}/5`)
         .join('\n');
-
-      const totalMinutes = activities.reduce((sum, a) => sum + a.durationMinutes, 0);
-      const avgMood = (activities.reduce((sum, a) => sum + a.mood, 0) / activities.length).toFixed(1);
 
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
@@ -98,28 +106,42 @@ export class InsightService {
           },
           {
             role: 'user',
-            content: `以下の活動ログを分析して、簡潔な振り返りと改善提案をJSON形式で回答してください。
+            content: `以下の活動ログを分析して、以下のJSON形式で回答してください。
 
 活動ログ（${activities.length}件、合計${totalMinutes}分、平均気分${avgMood}/5）:
 ${activitySummary}
 
-回答形式: { "summary": "振り返り（100文字程度）", "advice": "改善提案（100文字程度）" }`,
+回答形式: {
+  "oneLineSummary": "1行の要約（30文字程度）",
+  "actionItems": ["行動提案1（20文字程度）", "行動提案2（20文字程度）"],
+  "summary": "振り返り（100文字程度）",
+  "advice": "改善提案（100文字程度）"
+}`,
           },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 600,
       });
 
       const content = completion.choices[0]?.message?.content || '';
       const parsed = JSON.parse(content);
 
       return {
+        oneLineSummary: parsed.oneLineSummary || `この期間に${activities.length}件の活動を記録しました`,
+        actionItems: Array.isArray(parsed.actionItems) && parsed.actionItems.length > 0
+          ? parsed.actionItems.slice(0, 2) // 最大2個まで
+          : ['継続的に活動を記録しましょう', '週ごとに目標を設定してみましょう'],
         summary: parsed.summary || '振り返りを生成できませんでした',
         advice: parsed.advice || '改善提案を生成できませんでした',
       };
     } catch (error) {
       console.error('OpenAI API Error:', error);
       return {
+        oneLineSummary: `この期間に${activities.length}件の活動を記録しました`,
+        actionItems: [
+          '継続的に活動を記録しましょう',
+          '週ごとに目標を設定してみましょう',
+        ],
         summary: `この期間に${activities.length}件の活動を記録しました。`,
         advice: 'AI分析は現在利用できませんが、記録を続けることで成長が見えてきます。',
       };
@@ -131,17 +153,30 @@ ${activitySummary}
     userId: string;
     summary: string;
     advice: string;
+    oneLineSummary: string | null;
+    actionItems: string | null;
     startDate: string;
     endDate: string;
     category: string | null;
     activityCount: number;
     createdAt: Date;
   }) {
+    let parsedActionItems: string[] = [];
+    if (insight.actionItems) {
+      try {
+        parsedActionItems = JSON.parse(insight.actionItems);
+      } catch (e) {
+        console.error('Failed to parse actionItems:', e);
+      }
+    }
+
     return {
       id: insight.id,
       userId: insight.userId,
       summary: insight.summary,
       advice: insight.advice,
+      oneLineSummary: insight.oneLineSummary || insight.summary.substring(0, 50),
+      actionItems: parsedActionItems,
       period: {
         startDate: insight.startDate,
         endDate: insight.endDate,
