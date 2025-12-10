@@ -24,7 +24,7 @@ function OnboardingCompleteHandler() {
 
   useEffect(() => {
     if (searchParams.get('onboarding') === 'complete') {
-      sessionStorage.setItem('onboarding_complete', 'true');
+      localStorage.setItem('onboarding_complete', 'true');
       // URLからパラメータを削除
       router.replace('/');
     }
@@ -167,9 +167,24 @@ export default function HomePage() {
     ? (todayActivities.reduce((sum, a) => sum + a.mood, 0) / todayActivities.length).toFixed(1)
     : 'N/A';
 
-  // チュートリアル再開の提案（活動が0件で、オンボーディング完了済みの場合）
-  const showTutorialPrompt = !activitiesLoading && activities.length === 0 && 
-    sessionStorage.getItem('onboarding_complete') === 'true';
+  // チュートリアル再開の提案（チュートリアル完了済みで、まだ閉じていない場合）
+  const [showTutorialPrompt, setShowTutorialPrompt] = useState(false);
+  const [tutorialPromptDismissed, setTutorialPromptDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const onboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
+      const dismissed = localStorage.getItem('tutorial_prompt_dismissed') === 'true';
+      setTutorialPromptDismissed(dismissed);
+      setShowTutorialPrompt(onboardingComplete && !dismissed && !activitiesLoading);
+    }
+  }, [activitiesLoading]);
+
+  const handleDismissTutorialPrompt = () => {
+    localStorage.setItem('tutorial_prompt_dismissed', 'true');
+    setTutorialPromptDismissed(true);
+    setShowTutorialPrompt(false);
+  };
 
   return (
     <>
@@ -185,15 +200,24 @@ export default function HomePage() {
             <div className="tutorial-prompt-content">
               <span className="tutorial-prompt-icon">📚</span>
               <div className="tutorial-prompt-text">
-                <h3 className="tutorial-prompt-title">チュートリアルをしますか？</h3>
-                <p className="tutorial-prompt-subtitle">アプリの使い方を確認して、最初の活動を記録しましょう</p>
+                <h3 className="tutorial-prompt-title">チュートリアルを見ますか？</h3>
+                <p className="tutorial-prompt-subtitle">アプリの使い方を確認して、より効果的に活用しましょう</p>
               </div>
-              <button
-                className="tutorial-prompt-button"
-                onClick={() => router.push('/onboarding')}
-              >
-                チュートリアルを開始
-              </button>
+              <div className="tutorial-prompt-actions">
+                <button
+                  className="tutorial-prompt-button"
+                  onClick={() => router.push('/onboarding')}
+                >
+                  チュートリアルを開始
+                </button>
+                <button
+                  className="tutorial-prompt-dismiss"
+                  onClick={handleDismissTutorialPrompt}
+                  aria-label="閉じる"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -293,6 +317,11 @@ export default function HomePage() {
           color: #64748b;
           margin: 0;
         }
+        .tutorial-prompt-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
         .tutorial-prompt-button {
           padding: 0.75rem 1.5rem;
           background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -304,18 +333,45 @@ export default function HomePage() {
           font-family: inherit;
           transition: all 0.2s ease;
           box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+          white-space: nowrap;
         }
         .tutorial-prompt-button:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+        .tutorial-prompt-dismiss {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          background: rgba(0, 0, 0, 0.05);
+          color: #64748b;
+          border: none;
+          border-radius: 50%;
+          font-size: 1.2rem;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .tutorial-prompt-dismiss:hover {
+          background: rgba(0, 0, 0, 0.1);
+          color: #1e293b;
         }
         @media (max-width: 640px) {
           .tutorial-prompt-content {
             flex-direction: column;
             text-align: center;
           }
-          .tutorial-prompt-button {
+          .tutorial-prompt-actions {
             width: 100%;
+            justify-content: space-between;
+          }
+          .tutorial-prompt-button {
+            flex: 1;
           }
         }
         .streak-banner {
